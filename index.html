@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="./style.css">
+  <title>card</title>
+</head>
+
+<body>
+  <div id="area">
+    <p>第 <span id="text-level"></span> 關</p>
+    <p>倒數 <span id="text-time"></span> 秒</p>
+    <div id="btnStart">START</div>
+    <div id="index">回首頁</div>
+    <!-- 實時狀況 -->
+    <div id="instant"></div>
+    <div id="lookMe">LOOK ME </div>
+    <div id="info">
+      ▲ 遊戲說明 ▲<br>
+      <br>
+      可以選擇喜歡的主題作為卡牌花色<br><br>
+      玩家依序翻牌，翻開兩張圖案相同時配對成功，不同則可取得繼續翻牌的機會，時間內配對完成進入下一關。<br>
+      <br>
+      ▽ LEVEL 1 → 15 秒 &nbsp;&nbsp;&nbsp;8 張卡牌<br>
+      ▽ LEVEL 2 → 25 秒&nbsp; 12 張卡牌<br>
+      ▽ LEVEL 3 → 35 秒&nbsp; 16 張卡牌<br>
+      ▽ LEVEL 4 → 45 秒&nbsp; 20 張卡牌<br>
+      ▽ LEVEL 5 → 60 秒&nbsp; 24 張卡牌<br>
+      <br>
+      ▲ 計分方式 ▲<br>
+      <br>
+      以 累計每關花費的時間 做為分數，在相同 LEVEL 花費最少的時間<br>
+      就能成為贏家，一起來挑戰吧！<br>
+      <div id="btnClose">OK</div>
+    </div>
+
+    <div id="bg">
+      <!-- 卡牌主題 -->
+      <p id="text-theme" style="margin: 0;"><img src="./images/title.png" id="title" style="width:60%"></p>
+      <input type="radio" class="radio" id="totoro" value="totoro" name="bgchange">
+      <input type="radio" class="radio" id="baron" value="baron" name="bgchange">
+      <input type="radio" class="radio" id="howl" value="howl" name="bgchange">
+      <input type="radio" class="radio" id="sky" value="sky" name="bgchange">
+      <input type="radio" class="radio" id="porco" value="porco" name="bgchange">
+      <input type="radio" class="radio" id="kazetachinu" value="kazetachinu" name="bgchange">
+
+      <label for="totoro"><img src="./images/theme_totoro.jpg"></label>
+      <label for="baron"><img src="./images/theme_baron.jpg"></label>
+      <label for="howl"><img src="./images/theme_howl.jpg"></label>
+      <label for="sky"><img src="./images/theme_sky.jpg"></label>
+      <label for="porco"><img src="./images/theme_porco.jpg"></label>
+      <label for="kazetachinu"><img src="./images/theme_kazetachinu.jpg"></label>
+    </div>
+    <!-- 卡牌召喚 -->
+    <div id="game"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.1/jquery.min.js'
+    integrity='sha512-aVKKRRi/Q/YV+4mjoKBsE4x3H+BkegoM/em46NNlCqNTmUYADjBbeNefNxYV7giUp0VxICtqdrbqU7iVaeZNXA=='
+    crossorigin='anonymous'></script>
+  <script>
+    // 卡片主題
+    let theme = ''
+    // 計時器
+    let timer = 0
+    // 等級
+    let level = 1
+    // 累積時間
+    let countup = 0
+    // 倒數計時
+    let countdown = 15
+    // 儲存最高紀錄
+    $('#text-level').text(level)
+    $('p:not(#text-theme,#text-title)').hide()
+    const hightime = localStorage.cardgame ? JSON.parse(localStorage.cardgame) : { name: 'best', level: 1, time: 0 }
+    localStorage.cardgame = JSON.stringify(hightime)
+    // 打開 / 關閉遊戲說明
+    $('#lookMe').click(function () {
+      $('#info').css({ 'z-index': 2, 'opacity': 1 })
+    })
+    $('#btnClose').click(function () {
+      $('#info').css({ 'z-index': -1, 'opacity': 0 })
+    })
+
+    // 預設選定主題
+    $(function (e) {
+      $('.radio').eq(0).attr('checked', true)
+      $('label').eq(0).find('img').css('box-shadow', '0 0 10px #eee')
+      theme = $('.radio:checked').val()
+    })
+    // 換卡片主題
+    $('.radio').on('click', function (e) {
+      theme = e.target.value
+      $('body').css('background-image', ` url('./images/${theme}.jpg')`)
+      $('label').find('img').css('box-shadow', '')
+      $('label').eq($('.radio').index(this)).find('img').css('box-shadow', '0 0 10px #eee')
+    })
+    // 用迴圈產生卡片
+    function cardChange() {
+      for (let i = 0; i < (4 + level * 4); i++) {
+        $('#game').append(`
+        <div class="card card-close">
+          <div class="card-front"></div>
+          <div class="card-back"></div>
+          </div>
+          `)
+      }
+      for (let i = 0; i < $('.card').length; i++) {
+        // 決定兩對數字 以總卡片數的一半產生
+        const num = i % ($('.card').length / 2) + 1
+        $('.card-back').eq(i).css('background-image', ` url('./images/${theme}_back.jpg')`)
+        $('.card').eq(i).find('.card-front').css('background-image', `url('./images/${theme + num}.jpg')`)
+        // 用來判斷卡片是否相同
+        $('.card').eq(i).attr('data-num', num)
+
+        // 打散卡片
+        const target = Math.round(Math.random() * ($('.card').length - 1))
+        // 放進迴圈後面
+        $('.card').eq(target).insertAfter($('.card').eq(i))
+      }
+    }
+    // 卡片設定重置
+    function cardempty() {
+      // 恢復開始鍵
+      $('#btnStart').attr('disabled', false)
+      // 恢復卡牌翻轉後的透明度
+      $('.card').css('opacity', '')
+      $('.card').removeClass('card-ok')
+      $('.card, .card-colse').remove()
+    }
+    // 按下回首頁 or 結束遊戲
+    $('#index').click(function () {
+      $('#area').animate({ 'width': '600px', 'height': '550px' })
+      $(this).hide()
+      $('#bg, #lookMe').show()
+      $('p:not(#text-theme), #instant').hide()
+      $('#btnStart').text('START').animate({ 'top': '90%', 'left': '50%', 'display': 'block' })
+      level = 1
+      coubtup = 0
+      countdown = 15
+      $('#text-level').text(level)
+      $('#text-time').text(countdown)
+    })
+
+    // 按下開始
+    $('#btnStart').click(function () {
+      // 主題按鈕 回首頁 消失
+      $('#index, #bg, #lookMe, #instant').hide()
+      $(this).hide()
+      $('#area').animate({ 'width': '800px', 'height': '600px' })
+      if ($(this).text() === '再來一局') $('#game').css('width', '500px')
+      $('p:not(#text-theme)').show()
+      // 呼叫洗牌
+      cardChange()
+
+      // 計算秒數
+      timer = setInterval(() => {
+        // 累計時間++
+        countup++
+        // 該局剩餘時間--
+        countdown--
+        $('#text-time').text(countdown)
+        // 當時間截止
+        if (countdown === 0) {
+          clearInterval(timer)
+          // 重置卡牌
+          cardempty()
+          // 當目前 level 大於 最高紀錄的 level 或 與最高紀錄同 level 且 累計時間比最高紀錄還要少
+          if (level > hightime.level ||
+            (level === hightime.level && countup < hightime.time)) {
+            Swal.fire({
+              icon: 'info',
+              title: '最高分！留下你的大名吧！',
+              html: `累計時間為 ${countup} 秒`,
+              inputPlaceholder: '輸入名稱',
+              input: 'text',
+              inputAttributes: {
+                required: true
+              },
+              validationMessage: '名稱必填'
+            }).then(result => {
+              hightime.name = result.value
+              hightime.level = level
+              hightime.time = countup
+              localStorage.cardgame = JSON.stringify(hightime)
+              $('#instant').show().html(`- 最高紀錄 - <br>${hightime.name} / LEVEL ${hightime.level} / ${hightime.time} 秒`)
+              level = 1
+              countup = 0
+              countdown = 15
+              $('#text-level').text(level)
+              $('#text-time').text(countdown)
+            })
+          } else {
+            Swal.fire({
+              icon: 'success',
+              title: 'Time is up！',
+              html: `遊戲結束QAQ<br>累計時間為 ${countup} 秒`,
+            }).then(result => {
+              level = 1
+              countup = 0
+              countdown = 15
+              $('#text-level').text(level)
+              $('#text-time').text(countdown)
+              $('#instant').show().html(`- 最高紀錄 - <br>${hightime.name} / LEVEL ${hightime.level} / ${hightime.time} 秒`)
+            })
+          }
+          $('p:not(#text-theme)').hide()
+          $('#area').animate({ 'width': '500px', 'height': '300px' })
+          $('#btnStart').text('再來一局').css({ 'top': '75%', 'left': '30%', 'display': 'block' })
+          $('#index').text('回首頁').css({ 'top': '75%', 'left': '70%', 'display': 'block' })
+        }
+      }, 1000)
+    })
+
+    // 點選到某卡片時
+    $('#game').on('click', '.card', function () {
+      // 翻咖 0 張或 1 張時 (最多一次翻兩張，且翻的這張牌需為翻開過)
+      if ($('.card:not(.card-close)').length < 2 &&
+        $(this).hasClass('card-close') &&
+        !$(this).hasClass('card-ok')) {
+        // 移除該卡片的 card-close
+        $(this).removeClass('card-close')
+      }
+      // 如果翻了兩張
+      if ($('.card:not(.card-close)').length === 2) {
+        // 如果翻開兩張卡片一樣(data-num相同時)
+        if ($('.card:not(.card-close)').eq(0).attr('data-num') === $('.card:not(.card-close)').eq(1).attr('data-num')) {
+          // 用.card-ok 標記已完成
+          $('.card:not(.card-close)').addClass('card-ok')
+          // 動畫淡出
+          $('.card:not(.card-close)').fadeTo(1000, 0)
+        }
+        // 不管數字是否一樣都會將卡片翻過來
+        // 延遲設定的時間後才執行
+        setTimeout(() => {
+          $('.card:not(.card-close)').addClass('card-close')
+
+          // 配對成功的卡片數量與所有卡片數量相同
+          if ($('.card-ok').length === $('.card').length) {
+            // 結束本回合
+            clearInterval(timer)
+            $('p:not(#text-theme)').hide()
+            $('#area').animate({ 'width': '500px', 'height': '300px' })
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Congratulations',
+              html: `累積花費 ${countup} 秒`,
+              timer: 3000,
+              timerProgressBar: true,
+              didOpen: () => {
+                Swal.showLoading()
+              },
+              willClose: () => {
+                clearInterval(timer)
+              }
+            }).then(result => {
+              cardempty()
+              $('#btnStart').text('NEXT').css({ 'top': '75%', 'left': '35%', 'display': 'block' })
+              $('#index').text('OVER').css({ 'top': '75%', 'left': '65%', 'display': 'block' })
+              level++
+              // 各關卡秒數設定
+              switch (level) {
+                case 2: countdown = 25
+                  $('#instant').show().html(`- NEXT - <br>LEVEL 2 <br> 25 秒 / 12 張卡牌`)
+                  break
+                case 3: countdown = 35
+                  $('#instant').show().html(`- NEXT - <br>LEVEL 3 <br> 35 秒 / 16 張卡牌`)
+                  break
+                case 4: countdown = 45
+                  $('#game').css('width', '600px')
+                  $('#instant').show().html(`- NEXT - <br>LEVEL 4 <br> 45 秒 / 20 張卡牌`)
+                  break
+                case 5: countdown = 60
+                  $('#game').css('width', '750px')
+                  $('#instant').show().html(`- NEXT - <br>LEVEL 5 <br> 60 秒 / 24 張卡牌`)
+                  break
+                case 6:
+                  $('#instant').show().html(`太厲害了吧！<br>翻牌高手就是你！`)
+                  $('#btnStart').text('再來一局').css({ 'top': '75%', 'left': '35%', 'display': 'block' })
+                  $('#index').text('回首頁').css({ 'top': '75%', 'left': '65%', 'display': 'block' })
+                  break
+              }
+              $('#text-level').text(level)
+              $('#text-time').text(countdown)
+            })
+          }
+          // 翻開時間
+        }, 500)
+      }
+    })
+  </script>
+</body>
+
+</html>
